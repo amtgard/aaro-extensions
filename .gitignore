@@ -1,0 +1,6 @@
+/vendor/
+/.phpunit.cache/
+/coverage/
+/table_cache/
+/test-resources/table_cache/
+/.idea/

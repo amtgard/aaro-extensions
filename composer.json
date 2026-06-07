@@ -1,0 +1,44 @@
+{
+    "name": "amtgard/aaro-extensions",
+    "type": "library",
+    "homepage": "https://github.com/amtgard/aaro-extensions",
+    "license": "MIT",
+    "description": "Extended production features for the AARO ORM",
+    "require": {
+        "php": "^8.3",
+        "ext-json": "*",
+        "amtgard/active-record-orm": "@dev"
+    },
+    "require-dev": {
+        "phake/phake": "^4.5",
+        "phpunit/phpunit": "^11.3",
+        "amtgard/phpunit-extensions": "^1.0",
+        "robmorgan/phinx": "^0.16.8",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../active-record-orm"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Amtgard\\AaroExtensions\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\Unit\\": "tests/unit/",
+            "Tests\\Integration\\": "tests/integ/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite Unit",
+        "test:integ": "phpunit --testsuite Integration",
+        "docker:up": "docker compose -f docker-compose.dev.yml up -d",
+        "docker:down": "docker compose -f docker-compose.dev.yml down",
+        "migrate:test": "vendor/bin/phinx migrate -c test-resources/phinx.php"
+    }
+}
