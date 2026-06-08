@@ -107,17 +107,17 @@ See [Audit reference](#audit-reference) below for full schema and write semantic
 1. **Create** — after defining a core table, create its audit table in Phinx with mirrored columns (all nullable except metadata).
 2. **Patch** — whenever a core migration adds, changes, or drops columns, apply the corresponding change to the audit table in the same release (use `dropped_{n}_*` for removed columns).
 
-Migration generator and patcher CLI commands are planned for Phase 3:
+Migration generator and patcher commands:
 
 ```bash
 # Generate Phinx migration(s) for audit table(s) from the live database schema
-composer audit:phinx -- --env=.env [--table=users] --out-dir=db/migrations
+composer audit:phinx -- --env=.env --out-dir=db/migrations [--table=users]
 
 # Emit a patch migration after core schema changes
-composer audit:patch -- --env=.env [--table=users] --out-dir=db/migrations
+composer audit:patch -- --env=.env --out-dir=db/migrations [--table=users]
 ```
 
-Until those commands ship, maintain audit migrations manually alongside your core table migrations.
+Or invoke the binary directly: `vendor/bin/aaro-audit-migrate phinx ...`
 
 ### Example audit migration (Phinx)
 
@@ -240,7 +240,7 @@ src/Audit/
 
 - [x] **Phase 1** — Runtime audit wrapper + unit tests
 - [x] **Phase 2** — Docker Compose + integration tests
-- [ ] **Phase 3** — Phinx migration generator and audit-table patcher (`audit:phinx`, `audit:patch`)
+- [x] **Phase 3** — Phinx migration generator and audit-table patcher (`audit:phinx`, `audit:patch`)
 
 ---
 

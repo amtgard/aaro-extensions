@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fe8b9fd72cf098d0c52b2b7f58b5ed38",
+    "content-hash": "b435ad51d4ffd15f4ca1d26fd71a7986",
     "packages": [
         {
             "name": "amtgard/active-record-orm",
@@ -4190,7 +4190,8 @@
     "prefer-lowest": false,
     "platform": {
         "php": "^8.3",
-        "ext-json": "*"
+        "ext-json": "*",
+        "ext-pdo": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.6.0"
