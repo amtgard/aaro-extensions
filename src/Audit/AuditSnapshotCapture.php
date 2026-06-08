@@ -21,11 +21,12 @@ final class AuditSnapshotCapture
 
     public static function forUpdate(Table $srcTable): ?AuditSnapshot
     {
-        if (!$srcTable->hasActiveRecord()) {
+        if (!self::isUpdate($srcTable)) {
             return null;
         }
 
         $primaryKey = $srcTable->getTableSchema()->getPrimaryKey()->getName();
+        $currentValues = self::currentFieldValues($srcTable, $primaryKey);
         $editFields = [];
         $fieldValues = [];
 
@@ -36,7 +37,7 @@ final class AuditSnapshotCapture
             }
 
             $newValue = $fieldOperation->getValue();
-            $currentValue = $srcTable->$fieldName;
+            $currentValue = $currentValues[$fieldName] ?? null;
 
             if (!self::valuesEqual($currentValue, $newValue)) {
                 $editFields[] = $fieldName;
@@ -56,6 +57,12 @@ final class AuditSnapshotCapture
         );
     }
 
+    public static function isUpdate(Table $srcTable): bool
+    {
+        return $srcTable->hasActiveRecord()
+            || $srcTable->getTableSchema()->primaryKeyIsSet($srcTable->getSetFields());
+    }
+
     public static function forDelete(Table $srcTable): AuditSnapshot
     {
         $primaryKey = $srcTable->getTableSchema()->getPrimaryKey()->getName();
@@ -67,6 +74,58 @@ final class AuditSnapshotCapture
             self::stripPrimaryKey($record, $primaryKey),
             $record[$primaryKey] ?? $srcTable->getPrimaryKeyValue(),
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function currentFieldValues(Table $srcTable, string $primaryKey): array
+    {
+        if ($srcTable->hasActiveRecord()) {
+            $values = [];
+
+            foreach ($srcTable->getSetFields()->getFieldsByOperation([Operation::Set]) as $fieldOperation) {
+                $fieldName = $fieldOperation->getField()->getName();
+                if ($fieldName === $primaryKey) {
+                    continue;
+                }
+
+                $values[$fieldName] = $srcTable->$fieldName;
+            }
+
+            return $values;
+        }
+
+        return self::fetchRowByPrimaryKey($srcTable, $primaryKey, $srcTable->getPrimaryKeyValue()) ?? [];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function fetchRowByPrimaryKey(
+        Table $srcTable,
+        string $primaryKey,
+        mixed $primaryKeyValue,
+    ): ?array {
+        $database = $srcTable->getDatabase();
+        $database->clear();
+        $database->audit_pk = $primaryKeyValue;
+
+        $result = $database->execute(
+            sprintf(
+                'SELECT * FROM `%s` WHERE `%s` = :audit_pk LIMIT 1',
+                $srcTable->getTableSchema()->getTableName(),
+                $primaryKey,
+            ),
+        );
+
+        if (!$result->next()) {
+            return null;
+        }
+
+        $record = $result->getRecord();
+
+        return is_array($record) ? $record : null;
     }
 
     /**

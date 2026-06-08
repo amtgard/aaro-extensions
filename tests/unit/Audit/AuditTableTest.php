@@ -120,6 +120,39 @@ class AuditTableTest extends AmtgardTestCase
         self::assertSame(77, $auditTable->lastAuditEntry['edited_by_id']);
     }
 
+    public function testSave_onUpdateWithoutActiveRecordButPrimaryKeySet_writesAuditEntry(): void
+    {
+        $auditTable = $this->createAuditTableHarness(
+            hasActiveRecord: false,
+            setFields: ['id' => 10, 'field_a' => 7],
+            priorRowInDatabase: ['id' => 10, 'field_a' => 3],
+            primaryKeyValue: 10,
+            editedById: 55,
+        );
+
+        $auditTable->save();
+
+        self::assertNotNull($auditTable->lastAuditEntry);
+        self::assertSame(10, $auditTable->lastAuditEntry['audit_id']);
+        self::assertSame('update', $auditTable->lastAuditEntry['operation']);
+        self::assertSame('["field_a"]', $auditTable->lastAuditEntry['edit_fields']);
+        self::assertSame(7, $auditTable->lastAuditEntry['field_a']);
+    }
+
+    public function testSave_onUpdateWithoutActiveRecordAndNoChanges_doesNotWriteAuditEntry(): void
+    {
+        $auditTable = $this->createAuditTableHarness(
+            hasActiveRecord: false,
+            setFields: ['id' => 10, 'field_a' => 3],
+            priorRowInDatabase: ['id' => 10, 'field_a' => 3],
+            primaryKeyValue: 10,
+        );
+
+        $auditTable->save();
+
+        self::assertNull($auditTable->lastAuditEntry);
+    }
+
     public function testDelegatesReadOperationsToSourceTable(): void
     {
         $auditTable = $this->createAuditTableHarness();
@@ -149,12 +182,14 @@ class AuditTableTest extends AmtgardTestCase
     }
 
     /**
+     * @param array<string, mixed>|null $priorRowInDatabase
      * @param array<string, mixed>|null $currentFieldValues
      * @param array<string, mixed>|null $setFields
      * @param array<string, mixed>|null $deletedRecord
      */
     private function createAuditTableHarness(
         bool $hasActiveRecord = false,
+        ?array $priorRowInDatabase = null,
         ?array $currentFieldValues = null,
         ?array $setFields = null,
         ?array $deletedRecord = null,
@@ -165,6 +200,12 @@ class AuditTableTest extends AmtgardTestCase
         $schema = Phake::mock(TableSchema::class);
         $primaryKeyField = \Amtgard\ActiveRecordOrm\Schema\FieldDefinition::builder()->name('id')->build();
         Phake::when($schema)->getPrimaryKey()->thenReturn($primaryKeyField);
+        Phake::when($schema)->primaryKeyIsSet(Phake::anyParameters())->thenReturnCallback(
+            function (FieldSet $fieldSet) use ($setFields): bool {
+                return array_key_exists('id', $setFields ?? []);
+            },
+        );
+        Phake::when($schema)->getTableName()->thenReturn('core_table');
 
         $fieldSet = FieldSet::builder()->build();
         foreach ($setFields ?? [] as $fieldName => $value) {
@@ -187,6 +228,17 @@ class AuditTableTest extends AmtgardTestCase
                 return ($currentFieldValues ?? [])[$name] ?? null;
             }
         );
+
+        if ($priorRowInDatabase !== null) {
+            $fetchResultSet = Phake::mock(\Amtgard\ActiveRecordOrm\RecordSet::class);
+            Phake::when($fetchResultSet)->next()->thenReturn(true);
+            Phake::when($fetchResultSet)->getRecord()->thenReturn($priorRowInDatabase);
+
+            $fetchDatabase = Phake::mock(Database::class);
+            Phake::when($fetchDatabase)->execute(Phake::anyParameters())->thenReturn($fetchResultSet);
+            Phake::when($fetchDatabase)->clear()->thenReturn(null);
+            Phake::when($srcTable)->getDatabase()->thenReturn($fetchDatabase);
+        }
 
         if ($deletedRecord !== null) {
             $resultSet = Phake::mock(\Amtgard\ActiveRecordOrm\ResultSet::class);

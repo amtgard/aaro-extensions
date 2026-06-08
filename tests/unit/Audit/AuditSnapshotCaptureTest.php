@@ -32,12 +32,64 @@ class AuditSnapshotCaptureTest extends AmtgardTestCase
         self::assertSame(['field_a' => 'Alice', 'field_b' => 10], $snapshot->fieldValues);
     }
 
-    public function testForUpdate_returnsNullWhenNoActiveRecord(): void
+    public function testForUpdate_returnsNullWhenNotAnUpdate(): void
     {
-        $table = Phake::mock(Table::class);
-        Phake::when($table)->hasActiveRecord()->thenReturn(false);
+        $table = $this->createTableMock(hasActiveRecord: false, setFields: ['field_a' => 'Alice']);
 
         self::assertNull(AuditSnapshotCapture::forUpdate($table));
+    }
+
+    public function testForUpdate_withoutActiveRecord_fetchesRowAndCapturesChanges(): void
+    {
+        $schema = $this->createSchema('id');
+        Phake::when($schema)->primaryKeyIsSet(Phake::anyParameters())->thenReturn(true);
+        Phake::when($schema)->getTableName()->thenReturn('users');
+
+        $fieldSet = FieldSet::builder()->build();
+        foreach (['id' => 5, 'field_a' => 7] as $fieldName => $value) {
+            $fieldSet->setField(
+                FieldOperation::builder()
+                    ->field(FieldDefinition::builder()->name($fieldName)->build())
+                    ->value($value)
+                    ->operation(Operation::Set)
+                    ->build()
+            );
+        }
+
+        $recordSet = Phake::mock(\Amtgard\ActiveRecordOrm\RecordSet::class);
+        Phake::when($recordSet)->next()->thenReturn(true);
+        Phake::when($recordSet)->getRecord()->thenReturn(['id' => 5, 'field_a' => 3, 'field_b' => 'old']);
+
+        $database = Phake::mock(\Amtgard\ActiveRecordOrm\Repository\Database::class);
+        Phake::when($database)->execute(Phake::anyParameters())->thenReturn($recordSet);
+        Phake::when($database)->clear()->thenReturn(null);
+
+        $table = Phake::mock(Table::class);
+        Phake::when($table)->hasActiveRecord()->thenReturn(false);
+        Phake::when($table)->getTableSchema()->thenReturn($schema);
+        Phake::when($table)->getSetFields()->thenReturn($fieldSet);
+        Phake::when($table)->getPrimaryKeyValue()->thenReturn(5);
+        Phake::when($table)->getDatabase()->thenReturn($database);
+
+        $snapshot = AuditSnapshotCapture::forUpdate($table);
+
+        self::assertNotNull($snapshot);
+        self::assertSame(AuditOperation::Update, $snapshot->operation);
+        self::assertSame(['field_a'], $snapshot->editFields);
+        self::assertSame(['field_a' => 7], $snapshot->fieldValues);
+    }
+
+    public function testIsUpdate_isTrueWhenPrimaryKeyIsSetWithoutActiveRecord(): void
+    {
+        $schema = $this->createSchema('id');
+        Phake::when($schema)->primaryKeyIsSet(Phake::anyParameters())->thenReturn(true);
+
+        $table = Phake::mock(Table::class);
+        Phake::when($table)->hasActiveRecord()->thenReturn(false);
+        Phake::when($table)->getTableSchema()->thenReturn($schema);
+        Phake::when($table)->getSetFields()->thenReturn(FieldSet::builder()->build());
+
+        self::assertTrue(AuditSnapshotCapture::isUpdate($table));
     }
 
     public function testForUpdate_capturesNewValuesForChangedFieldsOnly(): void
@@ -148,6 +200,8 @@ class AuditSnapshotCaptureTest extends AmtgardTestCase
         Phake::when($schema)->getPrimaryKey()->thenReturn(
             FieldDefinition::builder()->name($primaryKey)->build()
         );
+        Phake::when($schema)->primaryKeyIsSet(Phake::anyParameters())->thenReturn(false);
+        Phake::when($schema)->getTableName()->thenReturn('test_table');
 
         return $schema;
     }
