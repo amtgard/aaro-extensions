@@ -144,6 +144,7 @@ class AuditSnapshotCaptureTest extends AmtgardTestCase
         Phake::when($resultSet)->getFieldMap()->thenReturn($record);
 
         $table = Phake::mock(Table::class);
+        Phake::when($table)->hasActiveRecord()->thenReturn(true);
         Phake::when($table)->getResultSet()->thenReturn($resultSet);
         Phake::when($table)->getTableSchema()->thenReturn($this->createSchema('id'));
         Phake::when($table)->getPrimaryKeyValue()->thenReturn(5);
@@ -152,6 +153,43 @@ class AuditSnapshotCaptureTest extends AmtgardTestCase
 
         self::assertSame(AuditOperation::Delete, $snapshot->operation);
         self::assertSame([], $snapshot->editFields);
+        self::assertSame(5, $snapshot->auditId);
+        self::assertSame(['field_a' => 3, 'field_b' => 'value'], $snapshot->fieldValues);
+    }
+
+    public function testForDelete_withoutActiveRecord_fetchesRowValues(): void
+    {
+        $schema = $this->createSchema('id');
+        Phake::when($schema)->primaryKeyIsSet(Phake::anyParameters())->thenReturn(true);
+        Phake::when($schema)->getTableName()->thenReturn('users');
+
+        $fieldSet = FieldSet::builder()->build();
+        $fieldSet->setField(
+            FieldOperation::builder()
+                ->field(FieldDefinition::builder()->name('id')->build())
+                ->value(5)
+                ->operation(Operation::Set)
+                ->build()
+        );
+
+        $recordSet = Phake::mock(\Amtgard\ActiveRecordOrm\RecordSet::class);
+        Phake::when($recordSet)->next()->thenReturn(true);
+        Phake::when($recordSet)->getRecord()->thenReturn(['id' => 5, 'field_a' => 3, 'field_b' => 'value']);
+
+        $database = Phake::mock(\Amtgard\ActiveRecordOrm\Repository\Database::class);
+        Phake::when($database)->execute(Phake::anyParameters())->thenReturn($recordSet);
+        Phake::when($database)->clear()->thenReturn(null);
+
+        $table = Phake::mock(Table::class);
+        Phake::when($table)->hasActiveRecord()->thenReturn(false);
+        Phake::when($table)->getTableSchema()->thenReturn($schema);
+        Phake::when($table)->getSetFields()->thenReturn($fieldSet);
+        Phake::when($table)->getPrimaryKeyValue()->thenReturn(5);
+        Phake::when($table)->getDatabase()->thenReturn($database);
+
+        $snapshot = AuditSnapshotCapture::forDelete($table);
+
+        self::assertSame(AuditOperation::Delete, $snapshot->operation);
         self::assertSame(5, $snapshot->auditId);
         self::assertSame(['field_a' => 3, 'field_b' => 'value'], $snapshot->fieldValues);
     }

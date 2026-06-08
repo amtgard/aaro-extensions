@@ -66,7 +66,7 @@ final class AuditSnapshotCapture
     public static function forDelete(Table $srcTable): AuditSnapshot
     {
         $primaryKey = $srcTable->getTableSchema()->getPrimaryKey()->getName();
-        $record = $srcTable->getResultSet()->getFieldMap();
+        $record = self::deleteRecordValues($srcTable, $primaryKey);
 
         return new AuditSnapshot(
             AuditOperation::Delete,
@@ -74,6 +74,22 @@ final class AuditSnapshotCapture
             self::stripPrimaryKey($record, $primaryKey),
             $record[$primaryKey] ?? $srcTable->getPrimaryKeyValue(),
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function deleteRecordValues(Table $srcTable, string $primaryKey): array
+    {
+        if ($srcTable->hasActiveRecord()) {
+            return $srcTable->getResultSet()->getFieldMap();
+        }
+
+        if ($srcTable->getTableSchema()->primaryKeyIsSet($srcTable->getSetFields())) {
+            return self::fetchRowByPrimaryKey($srcTable, $primaryKey, $srcTable->getPrimaryKeyValue()) ?? [];
+        }
+
+        return $srcTable->getResultSet()->getFieldMap();
     }
 
     /**

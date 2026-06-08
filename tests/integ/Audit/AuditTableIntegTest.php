@@ -136,6 +136,27 @@ class AuditTableIntegTest extends AmtgardTestCase
         self::assertNull($row['int_value']);
     }
 
+    public function testDelete_withoutLoadingRow_writesFullSnapshot(): void
+    {
+        $this->insertSourceRow(intValue: 2, stringValue: 'hello');
+        $coreId = $this->fetchCoreIdByIntValue(2);
+
+        self::$auditTable->clear();
+        self::$auditTable->id = $coreId;
+        self::assertFalse(self::$auditTable->hasActiveRecord());
+        self::$auditTable->delete();
+
+        self::assertSame(2, $this->countAuditRows());
+        $row = $this->fetchLatestAuditRow();
+
+        self::assertSame('delete', $row['operation']);
+        self::assertSame($coreId, (int) $row['audit_id']);
+        self::assertSame([], $this->decodeEditFields($row['edit_fields']));
+        self::assertSame(2, (int) $row['int_value']);
+        self::assertSame('hello', $row['string_value']);
+        self::assertSame(0, $this->countCoreRows());
+    }
+
     public function testDelete_writesFullSnapshot(): void
     {
         $this->insertSourceRow(intValue: 2, stringValue: 'hello');
