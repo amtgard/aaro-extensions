@@ -5,6 +5,7 @@ namespace Amtgard\AaroExtensions\Audit\Migration\Cli;
 use Amtgard\AaroExtensions\Audit\AuditConfiguration;
 use Amtgard\AaroExtensions\Audit\Migration\AuditMigrationGeneratorInterface;
 use Amtgard\AaroExtensions\Audit\Migration\AuditMigrationService;
+use Amtgard\AaroExtensions\Audit\Migration\AuditTableExclusionsLoader;
 use Amtgard\AaroExtensions\Audit\Migration\Schema\DatabaseSchemaSource;
 use Amtgard\ActiveRecordOrm\Configuration\Repository\DatabaseConfiguration;
 use Amtgard\ActiveRecordOrm\Configuration\Repository\MysqlPdoProvider;
@@ -41,7 +42,13 @@ final class AuditMigrateCommand
         }
 
         $service = $this->migrationGenerator ?? new AuditMigrationService(
-            new DatabaseSchemaSource($this->connectDatabase($args['env'])),
+            new DatabaseSchemaSource(
+                $this->connectDatabase($args['env']),
+                AuditTableExclusionsLoader::load(
+                    AuditTableExclusionsLoader::defaultPath(),
+                    $args['exclude-file'] ?: null,
+                ),
+            ),
         );
         $configuration = AuditConfiguration::builder()->build();
         $table = $args['table'] ?: null;
@@ -94,7 +101,7 @@ final class AuditMigrateCommand
 
     /**
      * @param string[] $argv
-     * @return array{command: ?string, env: ?string, table: ?string, out-dir: ?string, help: bool}
+     * @return array{command: ?string, env: ?string, table: ?string, out-dir: ?string, exclude-file: ?string, help: bool}
      */
     public function parseArguments(array $argv): array
     {
@@ -103,6 +110,7 @@ final class AuditMigrateCommand
             'env' => null,
             'table' => null,
             'out-dir' => null,
+            'exclude-file' => null,
             'help' => false,
         ];
 
@@ -147,8 +155,8 @@ final class AuditMigrateCommand
 aaro-audit-migrate — generate Phinx migrations for audit tables
 
 Usage:
-  aaro-audit-migrate phinx --env=<path> --out-dir=<path> [--table=<table>]
-  aaro-audit-migrate patch --env=<path> --out-dir=<path> [--table=<table>]
+  aaro-audit-migrate phinx --env=<path> --out-dir=<path> [--table=<table>] [--exclude-file=<path>]
+  aaro-audit-migrate patch --env=<path> --out-dir=<path> [--table=<table>] [--exclude-file=<path>]
 
 Commands:
   phinx   Create audit table migration(s) from the live core table schema
@@ -157,8 +165,9 @@ Commands:
 Options:
   --env       Path to .env file or directory containing .env (required)
   --out-dir   Directory for generated migration files (required)
-  --table     Core table name (optional; all non-audit tables if omitted)
-  --help      Show this help message
+  --table         Core table name (optional; all non-excluded tables if omitted)
+  --exclude-file  Additional YAML exclusions merged with the bundled defaults
+  --help          Show this help message
 
 Examples:
   aaro-audit-migrate phinx --env=./.env --out-dir=./db/migrations --table=users

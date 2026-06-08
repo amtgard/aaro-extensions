@@ -1,0 +1,8 @@
+# Tables skipped when generating audit migrations without an explicit --table.
+# Audit tables are excluded automatically via the _audit suffix.
+
+tables:
+  - phinxlog
+
+suffixes:
+  - _audit
