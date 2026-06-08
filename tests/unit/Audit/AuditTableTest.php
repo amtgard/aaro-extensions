@@ -120,6 +120,27 @@ class AuditTableTest extends AmtgardTestCase
         self::assertSame(77, $auditTable->lastAuditEntry['edited_by_id']);
     }
 
+    public function testDelete_withoutActiveRecordButPrimaryKeySet_writesFullRecordFromDatabase(): void
+    {
+        $auditTable = $this->createAuditTableHarness(
+            hasActiveRecord: false,
+            setFields: ['id' => 12],
+            priorRowInDatabase: ['id' => 12, 'field_a' => 3, 'field_b' => 'gone'],
+            primaryKeyValue: 12,
+            editedById: 77,
+        );
+
+        $auditTable->delete();
+
+        self::assertNotNull($auditTable->lastAuditEntry);
+        self::assertSame(12, $auditTable->lastAuditEntry['audit_id']);
+        self::assertSame('delete', $auditTable->lastAuditEntry['operation']);
+        self::assertSame('[]', $auditTable->lastAuditEntry['edit_fields']);
+        self::assertSame(3, $auditTable->lastAuditEntry['field_a']);
+        self::assertSame('gone', $auditTable->lastAuditEntry['field_b']);
+        self::assertSame(77, $auditTable->lastAuditEntry['edited_by_id']);
+    }
+
     public function testSave_onUpdateWithoutActiveRecordButPrimaryKeySet_writesAuditEntry(): void
     {
         $auditTable = $this->createAuditTableHarness(
