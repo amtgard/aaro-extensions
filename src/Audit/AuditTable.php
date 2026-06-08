@@ -87,7 +87,7 @@ class AuditTable extends Table implements TableInterface
 
     public function save(): void
     {
-        if ($this->srcTable->hasActiveRecord()) {
+        if (AuditSnapshotCapture::isUpdate($this->srcTable)) {
             $snapshot = AuditSnapshotCapture::forUpdate($this->srcTable);
             $this->srcTable->save();
             if ($snapshot !== null) {
