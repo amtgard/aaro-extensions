@@ -7,7 +7,9 @@
     "require": {
         "php": "^8.3",
         "ext-json": "*",
-        "amtgard/active-record-orm": "@dev"
+        "ext-pdo": "*",
+        "amtgard/active-record-orm": "@dev",
+        "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
         "phake/phake": "^4.5",
@@ -27,6 +29,9 @@
             "Amtgard\\AaroExtensions\\": "src/"
         }
     },
+    "bin": [
+        "bin/aaro-audit-migrate"
+    ],
     "autoload-dev": {
         "psr-4": {
             "Tests\\Unit\\": "tests/unit/",
@@ -39,6 +44,8 @@
         "test:integ": "phpunit --testsuite Integration",
         "docker:up": "docker compose -f docker-compose.dev.yml up -d",
         "docker:down": "docker compose -f docker-compose.dev.yml down",
-        "migrate:test": "vendor/bin/phinx migrate -c test-resources/phinx.php"
+        "migrate:test": "vendor/bin/phinx migrate -c test-resources/phinx.php",
+        "audit:phinx": "@php bin/aaro-audit-migrate phinx",
+        "audit:patch": "@php bin/aaro-audit-migrate patch"
     }
 }
