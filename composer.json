@@ -9,7 +9,8 @@
         "ext-json": "*",
         "ext-pdo": "*",
         "amtgard/active-record-orm": "@dev",
-        "vlucas/phpdotenv": "^5.6"
+        "vlucas/phpdotenv": "^5.6",
+        "symfony/yaml": "^7.0"
     },
     "require-dev": {
         "phake/phake": "^4.5",

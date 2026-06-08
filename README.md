@@ -115,9 +115,48 @@ composer audit:phinx -- --env=.env --out-dir=db/migrations [--table=users]
 
 # Emit a patch migration after core schema changes
 composer audit:patch -- --env=.env --out-dir=db/migrations [--table=users]
+
+# Merge project-specific table exclusions with the bundled defaults
+composer audit:phinx -- --env=.env --out-dir=db/migrations --exclude-file=db/audit-exclusions.yaml
 ```
 
 Or invoke the binary directly: `vendor/bin/aaro-audit-migrate phinx ...`
+
+When `--table` is omitted, the CLI scans every table in the database and generates migrations for each one that is not excluded. Explicit `--table` always targets that table, even if it appears in an exclusions file.
+
+### Table exclusions
+
+Infrastructure and framework tables (Phinx migration log, existing audit tables, etc.) should not receive audit migrations. The package ships a default list at `resources/audit-table-exclusions.yaml`:
+
+```yaml
+tables:
+  - phinxlog
+
+suffixes:
+  - _audit
+```
+
+| Key | Matches |
+|---|---|
+| `tables` | Exact table names |
+| `suffixes` | Table names ending with the given suffix |
+
+Add project-specific exclusions in a local YAML file and pass it with `--exclude-file`. Entries are **merged** with the bundled defaults, not replaced:
+
+```yaml
+# db/audit-exclusions.yaml
+tables:
+  - queue_jobs
+  - sessions
+suffixes:
+  - _history
+```
+
+```bash
+composer audit:patch -- --env=.env --out-dir=db/migrations --exclude-file=db/audit-exclusions.yaml
+```
+
+To exclude a table that ships in the defaults (unlikely), target it explicitly with `--table` instead of relying on the bulk scan.
 
 ### Example audit migration (Phinx)
 
@@ -232,6 +271,18 @@ src/Audit/
   AuditRepository.php         Repository base class
   AuditRepositoryEntityTrait.php
   EditedBySupplier.php        Optional supplier interface
+  Migration/
+    AuditMigrationService.php       phinx / patch orchestration
+    AuditSchemaGenerator.php        core schema → audit schema
+    AuditSchemaDiffer.php             diff core vs audit for patches
+    AuditPhinxWriter.php              Phinx migration file output
+    AuditTableExclusions.php          table/suffix exclusion rules
+    AuditTableExclusionsLoader.php    YAML loader for exclusions
+    Cli/AuditMigrateCommand.php       aaro-audit-migrate CLI
+resources/
+  audit-table-exclusions.yaml   default tables skipped by bulk scan
+bin/
+  aaro-audit-migrate            CLI entry point
 ```
 
 ---

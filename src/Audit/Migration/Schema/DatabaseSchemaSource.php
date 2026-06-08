@@ -2,14 +2,17 @@
 
 namespace Amtgard\AaroExtensions\Audit\Migration\Schema;
 
+use Amtgard\AaroExtensions\Audit\Migration\AuditTableExclusions;
 use Amtgard\AaroExtensions\Audit\Migration\MysqlTypeMapper;
 use Amtgard\ActiveRecordOrm\Repository\Database;
 use Amtgard\ActiveRecordOrm\Schema\FieldDefinition;
 
 final class DatabaseSchemaSource implements SchemaSourceInterface
 {
-    public function __construct(private readonly Database $database)
-    {
+    public function __construct(
+        private readonly Database $database,
+        private readonly AuditTableExclusions $exclusions = new AuditTableExclusions(),
+    ) {
     }
 
     public function tableExists(string $tableName): bool
@@ -41,7 +44,7 @@ final class DatabaseSchemaSource implements SchemaSourceInterface
                 continue;
             }
 
-            if (str_ends_with($tableName, '_audit') || $tableName === 'phinxlog') {
+            if ($this->exclusions->isExcluded($tableName)) {
                 continue;
             }
 
